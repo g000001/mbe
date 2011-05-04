@@ -1,0 +1,203 @@
+\input tex2page %-*-tex-*-
+\htmlstylesheet{../tex2page/tex2page.css}
+
+\let\q\scmp
+\scmkeyword{my-let my-or either}
+
+\subject{Scheme Macros for Common Lisp}
+
+\urlh{mbe-lsp.tar.gz}{[Download mbe.lsp]}
+
+\smallskip
+
+\urlh{http://www.cs.rice.edu/~dorai}{Dorai Sitaram}
+
+\bigskip
+
+\p{mbe.lsp} defines for Common Lisp the macro definers \q{define-syntax},
+\q{let-syntax}, and \q{letrec-syntax}, as described in the
+Scheme report R5RS \cite{r5rs}.
+
+These macro definers, also called {\it macro by example
+(MBE)\/}, use simple patterns, including ellipsis, to
+specify how a macro should be expanded.  They were
+propounded by Eugene Kohlbecker \cite{kohlbecker86,kohlbecker-thesis}
+in the mid-1980s and became part of
+the Scheme standard in 1991.
+
+MBE contrast dramatically with Common Lisp's \q{defmacro}
+and
+\q{macrolet}, which require the user to program expansions
+using extensive list destructuring and restructuring, often
+involving several nestings of backquotes, quotes, unquotes
+and spliced unquotes.
+
+For example, a \q{let} macro could be defined using MBE
+as follows (we will use \q{my-let} in order not to clash
+with the standard \q{let}):
+
+\q{
+(define-syntax my-let
+  (syntax-rules ()
+    ((my-let ((x v) ***) e ***)
+     ((lambda (x ***) e ***) v ***))))
+}
+
+The \q{***} indicates an {\it ellipsis}.  Thus, the input pattern \q{((x v)
+***)} matches a list, each of whose elements match \q{(x
+v)}.  When expanding, the output pattern \q{(x ***)}
+represents a list containing all the \q{x}'s in the same
+order that they matched the \q{x}'s in the input
+pattern.\numfootnote{The ellipsis is represented by `\q{...}'
+in Scheme.  This Common Lisp implementation uses
+`\q{***}' instead, since `\q{...}' is disallowed by Common
+Lisp's identifier conventions.}
+
+Using \q{defmacro}, the definition would be:
+
+\q{
+(defmacro my-let (xvxv &rest ee)
+  `((lambda ,(mapcar #'car xvxv)
+      ,@ee)
+    ,@(mapcar #'cadr xvxv)))
+}
+
+\section{\tt define-syntax}
+
+Global MBE macros are defined using the form
+\q{define-syntax}.  Its first subexpression is the name of the
+macro to be defined, and its second subexpression is the
+\q{syntax-rules} governing that macro's expansion.
+
+The first subexpression of \q{syntax-rules} is a list of
+auxiliary {\it keywords\/} pertaining to the macro.  The
+remaining subexpressions of \q{syntax-rules} are the macro
+expansion {\it clauses}.  Each clause consists of an {\it
+in-pattern\/} and an {\it out-pattern}.  If the macro call
+matches an in-pattern, it expands to the corresponding
+out-pattern.  The clauses are tried in sequence: a macro
+call expands based on the first in-pattern that it matches.
+
+Here is an example of a disjunction form \q{my-or} (same as
+CL \q{or}):
+
+\q{
+(define-syntax my-or
+  (syntax-rules ()
+    ((my-or) nil)
+    ((my-or arg1) arg1)
+    ((my-or arg1 arg2) (let ((temp arg1))
+                         (if temp temp arg2)))
+    ((my-or arg1 arg2 arg3 ***) (my-or (my-or arg1 arg2) arg3 ***))))
+}
+
+\subsection{Hygiene}
+
+There is one problem with the definition of \q{my-or} above.
+If you have a global variable \q{temp} bound to \q{t},
+then the following expression
+
+\q{
+(my-or nil temp)
+}
+
+does not give the expected result (\q{t}).  This is because
+
+\q{
+(my-or nil temp)
+}
+
+expands to
+
+\q{
+(let ((temp nil))
+  (if temp temp temp))
+}
+
+which evaluates to \q{nil}.  The temporary lexical variable
+\q{temp} introduced in the macro expansion shadows (or {\it
+captures\/}) the
+global \q{temp} and therefore causes an erroneous result.
+
+The Scheme report requires that the macro definers be {\it
+hygienic}, i.e., that they automatically avoid these lexical
+captures.  This Common Lisp implementation does {\it not\/}
+provide hygiene.  There are two ways out:
+
+1. Use unusual names for any lexical variables you introduce
+in the expansion pattern, e.g.,
+
+\q{
+...
+((my-or arg1 arg2) (let ((__#temp#__ arg1))
+                     (if __#temp#__ __#temp#__ arg2)))
+...
+}
+
+and then hope that nobody ever uses \q{__#temp#__}.
+
+2.  A better alternative is to use a generated symbol that
+is guaranteed not to clash with anything Lisp or you can
+come up with before or after.  To introduce this gensym,
+\q{mbe.lsp} provides a \q{with}-wrapper for the expansion
+pattern.  E.g.,
+
+\q{
+...
+((my-or arg1 arg2) (with ((temp (gensym)))
+                     (let ((temp arg1))
+                       (if temp temp arg2))))
+...
+}
+
+Here, the \q{temp} identifier used in the expansion pattern
+will be a gensym, and not the symbol literally named
+\q{temp}.
+
+\section{{\tt let-syntax} and {\tt letrec-syntax}}
+
+\scmkeyword{either}
+
+\q{define-syntax} defines globally visible macros.  For
+local macros (cf.\ Common Lisp's \q{macrolet}), use
+\q{let-syntax} or \q{letrec-syntax}.  Example:
+
+\q{
+(let-syntax ((either (syntax-rules ()
+                       ((either x y) (with ((tmp (gensym)))
+                                       (let ((tmp x))
+                                         (if tmp tmp y)))))))
+  (either "this" "that"))
+}
+
+The \q{either} macro is local to the \q{let-syntax} body,
+and will not be visible outside.
+
+The Scheme report distinguishes between
+\q{let-syntax} and \q{letrec-syntax} the same way that
+Common Lisp distinguishes between \q{flet} and \q{labels}.
+However, this distinction is not well preserved in \p{mbe.lsp}
+because these forms are defined using \q{macrolet}, and
+\q{macrolet} doesn't have the same scoping style.
+
+\section{References}
+
+\thebibliography{99}
+\bibitem{kohlbecker86} Eugene E. Kohlbecker, Jr., Daniel
+P. Friedman, Matthias Felleisen, and Bruce Duba, ``Hygienic
+Macro Expansion'', in {\it Proc.\ 1986 ACM Conf.\ on Lisp
+and Functional Programming}, pp.\ 151--161.
+
+\bibitem{kohlbecker-thesis} Eugene E. Kohlbecker, Jr.,  {\it
+Syntactic
+Extensions in the Programming Language Lisp}, PhD thesis,
+Indiana Univ., 1986.
+
+\bibitem{r5rs}
+\urlh{http://www-swiss.ai.mit.edu/ftpdir/scheme-reports/r5rs-html/r5rs_toc.html}{\it
+Revised~(5)
+Report on the Algorithmic Language Scheme\/} (``R5RS''), eds.\ Richard
+Kelsey, William Clinger, and Jonathan Rees, 1998.
+\endthebibliography
+
+\bye
