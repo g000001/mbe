@@ -6,6 +6,7 @@
   (:export :define-syntax
            :letrec-syntax
            :let-syntax
+           :with
            ; :*** cl:***
            ))
 
