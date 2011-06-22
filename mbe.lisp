@@ -58,14 +58,19 @@
         r))|#
 
 (defun schemembe-ellipsis-sub-envs (nestings r)
-  (apply #'mapcar
-         #'nconc
+  (let ((ans
          (remove nil
                  (mapcar (lambda (n)
                            (some #'(lambda (c)
-                                     (if (schemembe-intersect? (list n) (car c)) (cdr c) nil))
+                                     (if (schemembe-intersect? (list n)
+                                                               (car c))
+                                         (cdr c)
+                                         nil))
                                  r))
                          nestings))))
+    (if ans
+        (apply #'mapcar1 #'append ans)
+        nil )))
 
 (defun schemembe-intersect? (v y)
   (if (or (schemembe-symbol? v) (schemembe-symbol? y))
