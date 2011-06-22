@@ -52,10 +52,20 @@
                    (t '()))))
     (sub p)))
 
-(defun schemembe-ellipsis-sub-envs (nestings r)
+#|(defun schemembe-ellipsis-sub-envs (nestings r)
   (some #'(lambda (c)
             (if (schemembe-intersect? nestings (car c)) (cdr c) nil))
-        r))
+        r))|#
+
+(defun schemembe-ellipsis-sub-envs (nestings r)
+  (apply #'mapcar
+         #'nconc
+         (remove nil
+                 (mapcar (lambda (n)
+                           (some #'(lambda (c)
+                                     (if (schemembe-intersect? (list n) (car c)) (cdr c) nil))
+                                 r))
+                         nestings))))
 
 (defun schemembe-intersect? (v y)
   (if (or (schemembe-symbol? v) (schemembe-symbol? y))
