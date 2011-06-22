@@ -69,7 +69,7 @@
                                  r))
                          nestings))))
     (if ans
-        (apply #'mapcar1 #'append ans)
+        (apply #'mapcar #'append ans)
         nil )))
 
 (defun schemembe-intersect? (v y)
