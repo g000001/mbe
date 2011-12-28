@@ -4,6 +4,7 @@
 
 (defpackage :mbe
   (:export :define-syntax
+           :syntax-rules
            :letrec-syntax
            :let-syntax
            :with

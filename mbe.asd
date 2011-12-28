@@ -4,6 +4,7 @@
 
 (defsystem :mbe
   :serial t
+  :depends-on (:fiveam)
   :components ((:file "package")
                (:file "mbe")))
 
@@ -15,4 +16,3 @@
            (funcall (_ :fiveam :explain!) result)
            (funcall (_ :fiveam :results-status) result)))
       (error "test-op failed") ))
-
