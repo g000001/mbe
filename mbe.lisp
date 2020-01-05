@@ -35,17 +35,6 @@
 (defun schemembe-ellipsis? (x)
   (and (consp x) (consp (cdr x)) (eq (cadr x) *schemembe-ellipsis-indicator*)))
 
-#|(defun schemembe-ellipsis? (x)
-  (typecase x
-    (cons (and (consp (cdr x))
-               (eq (cadr x) *schemembe-ellipsis-indicator*)))
-    (vector (and (= 2 (length x))
-                 (eq (elt x 1)
-                     *schemembe-ellipsis-indicator*)))))|#
-
-#|(schemembe-ellipsis? '(x ***))|#
-#|(schemembe-ellipsis? #(x ***))|#
-
 (defun schemembe-matches-pattern? (p e k)
   (cond ((schemembe-ellipsis? p)
          (if (not (= (list-length p) 2)) (error "bad ellipsis: ~a" p))
@@ -59,37 +48,6 @@
         ((schemembe-symbol? p) (if (member p k) (eq p e) t))
         (t (equal p e))))
 
-#|(defun schemembe-matches-pattern? (p e k)
-  (etypecase p
-    (list (cond ((schemembe-ellipsis? p)
-                 (if (not (= (list-length p) 2)) (error "bad ellipsis: ~a" p))
-                 (and (schemembe-list? e)
-                      (let ((p0 (car p)))
-                        (every #'(lambda (e_i)
-                                   (schemembe-matches-pattern? p0 e_i k) )
-                               e ))))
-                ((consp p)
-                 (and (consp e) (schemembe-matches-pattern? (car p) (car e) k)
-                      (schemembe-matches-pattern? (cdr p) (cdr e) k) ))
-                ((schemembe-symbol? p) (if (member p k) (eq p e) t))
-                (t (equal p e)) ))
-    (vector (cond ((schemembe-ellipsis? p)
-                   (if (not (= (length p) 2)) (error "bad ellipsis: ~a" p))
-                   (and (vectorp e)
-                        (let ((p0 (elt p 0)))
-                          (every #'(lambda (e_i)
-                                     (schemembe-matches-pattern? p0 e_i k) )
-                                 e ))))
-                  ((and (vector p) (<= 1 (length p)))
-                   (and (consp e)
-                        (schemembe-matches-pattern? (elt p 0) (car e) k)
-                        (schemembe-matches-pattern? (subseq p 1) (cdr e) k) ))
-                  ((schemembe-symbol? p) (if (member p k) (eq p e) t))
-                  (t (equal p e)) ))
-    (atom (schemembe-symbol? p)
-          (if (member p k) (eq p e) t))))|#
-
-
 (defun schemembe-get-ellipsis-nestings (p k)
   (labels ((sub (p)
              (cond ((schemembe-ellipsis? p)
@@ -98,11 +56,6 @@
                    ((schemembe-symbol? p) (if (member p k) '() (list p)))
                    (t '()))))
     (sub p)))
-
-#|(defun schemembe-ellipsis-sub-envs (nestings r)
-  (some #'(lambda (c)
-            (if (schemembe-intersect? nestings (car c)) (cdr c) nil))
-        r))|#
 
 (defun schemembe-ellipsis-sub-envs (nestings r)
   (let ((ans
@@ -139,36 +92,6 @@
         ((schemembe-symbol? p) (if (member p k) '() (list (cons p e))))
         (t '())))
 
-#|(defun schemembe-get-bindings (p e k)
-  (etypecase p
-    (list (cond ((schemembe-ellipsis? p)
-                 (let ((p0 (car p)))
-                   (list (cons (schemembe-get-ellipsis-nestings p0 k)
-                               (mapcar #'(lambda (e_i)
-                                           (schemembe-get-bindings p0 e_i k) )
-                                       e )))))
-                ((consp p)
-                 (nconc (schemembe-get-bindings (car p) (car e) k)
-                        (schemembe-get-bindings (cdr p) (cdr e) k) ))
-                ((schemembe-symbol? p) (if (member p k) '() (list (cons p e))))
-                (t '()) ))
-    (vector (cond ((schemembe-ellipsis? p)
-                   (let ((p0 (elt p 0)))
-                     (list (cons (schemembe-get-ellipsis-nestings p0 k)
-                                 (map 'list
-                                      (lambda (e_i)
-                                        (schemembe-get-bindings p0 e_i k) )
-                                      e )))))
-                  ((<= 1 (length p))
-                   (nconc (schemembe-get-bindings (elt p 0) (car e) k)
-                          (schemembe-get-bindings (subseq p 1) (cdr e) k) ))
-                  ((schemembe-symbol? p) (if (member p k) '() (list (cons p e))))
-                  (t '()) ))
-    (atom (schemembe-symbol? p)
-          (if (member p k) '() (list (cons p e))))))|#
-
-
-
 (defun schemembe-expand-pattern (p r k)
   (cond ((schemembe-ellipsis? p)
          (nconc (let* ((p0 (car p))
@@ -184,9 +107,6 @@
         ((schemembe-symbol? p)
          (if (member p k) p (let ((x (assoc p r))) (if x (cdr x) p))))
         (t p)))
-
-#|(defun uninterned-symbols (list)
-  (remove-if #'symbol-package list))|#
 
 (defun schemembe-syntax-rules-proc (macro-name kk cc arg-sym kk-sym)
   (let ((kk (cons macro-name kk)))
@@ -222,32 +142,8 @@
                                                                   (set-difference (flatten (cadr out-pat)) in-pat)))
                                                   r)
                                            ,kk-sym))
-                                        #|(T `(schemembe-expand-pattern
-                                             ',out-pat
-                                             (nconc (list ,@(mapcar (lambda (w)
-                                                                      (let ((gname (gentemp (format nil "~A-" w))))
-                                                                        (when (fboundp w)
-                                                                          (setf (symbol-function gname)
-                                                                                (symbol-function w)))
-                                                                        `(cons ',w ',gname)))
-                                                                    (set-difference (kl:flatten out-pat) in-pat)))
-                                                    r)
-                                             ,kk-sym))|#
-                                        ;; orig default
                                         (T `(schemembe-expand-pattern ',out-pat r
-                                                                      ,kk-sym)))
-                                 #|,(if (and (consp out-pat)
-                                           (eq (car out-pat) 'with))
-                                      `(schemembe-expand-pattern
-                                        ',(caddr out-pat)
-                                        (nconc (list ,@(mapcar #'(lambda (w)
-                                                                   `(cons ',(car w)
-                                                                          ,(cadr w)))
-                                                               (cadr out-pat)))
-                                               r)
-                                        ,kk-sym)
-                                    `(schemembe-expand-pattern ',out-pat r
-                                                               ,kk-sym))|#))))
+                                                                      ,kk-sym)))))))
                        cc)
              (t (error "~a: no matching clause" ',macro-name))))))
 
